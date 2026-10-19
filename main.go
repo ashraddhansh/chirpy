@@ -10,12 +10,12 @@ func main() {
 	const filepathRoot = "."
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/healthz", handlerReadiness)
+	mux.HandleFunc("GET /healthz", handlerReadiness)
 	
 	var apiCfg apiConfig
 
-	mux.HandleFunc("/metrics", apiCfg.handlerMetrics)
-	mux.HandleFunc("/reset", apiCfg.handlerReset)
+	mux.HandleFunc("GET /metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("POST /reset", apiCfg.handlerReset)
 
 	mux.Handle("/app/",
 		apiCfg.middlewareMetricsInc(
@@ -33,8 +33,3 @@ func main() {
 	log.Printf("Serving files from %s on port: %s\n",filepathRoot, port)
 	log.Fatal(server.ListenAndServe())
 }
-
-
-
-
-
