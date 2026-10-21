@@ -11,6 +11,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
 	
 	var apiCfg apiConfig
 
