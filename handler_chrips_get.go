@@ -9,7 +9,7 @@ import (
 func (cfg *apiConfig) handlerGetChirps (w http.ResponseWriter, r *http.Request) {
 	dbChirps, err := cfg.db.GetChirps(r.Context())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps frmo database", err)
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps from database", err)
 		return
 	}
 
