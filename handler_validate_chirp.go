@@ -2,10 +2,26 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"strings"
 	"unicode/utf8"
 )
+
+func replaceProfaneWords(body string) string {
+    profaneWords := []string{"kerfuffle", "sharbert", "fornax"}
+    words := strings.Split(body, " ")
+
+    for i, word := range words {
+        for _, profane := range profaneWords {
+            if strings.EqualFold(word, profane) {
+                words[i] = "****"
+                break
+            }
+        }
+    }
+
+    return strings.Join(words, " ")
+}
 
 func handlerValidateChirp (w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
@@ -13,7 +29,7 @@ func handlerValidateChirp (w http.ResponseWriter, r *http.Request) {
 	}
 	
 	type returnVals struct {
-		Valid	bool `json:"valid"`
+		CleanedBody	string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -30,38 +46,5 @@ func handlerValidateChirp (w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
 		return
 	}
-	respondWithJSON(w, http.StatusOK, returnVals{Valid: true})
+	respondWithJSON(w, http.StatusOK, returnVals{CleanedBody: replaceProfaneWords(params.Body)})
 }
-
-
-func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
-	
-	if err != nil {
-		log.Println(err)
-	}
-	if code > 499 {
-		log.Printf("Responding with 5XX error: %s", msg)
-	}
-	
-	type errorResponse struct {
-		Error	string `json:"error"`
-	}
-	respondWithJSON(w, code, errorResponse{
-		Error: msg,
-	})
-
-}
-
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	dat, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Error marshalling JSON: %s", err)
-		w.WriteHeader(code)
-		return
-	}
-	w.WriteHeader(code)
-	w.Write(dat)
-
-}
-
