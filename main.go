@@ -1,12 +1,32 @@
 package main
 
-import _ "github.com/lib/pq"
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"os"
+
+	"github.com/ashraddhansh/chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	godotenv.Load()
+
+	dbURL := os.Getenv("DB_URL")
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Print(err)
+	}
+
+	dbQueries := database.New(db)
+
+	apiCfg := &apiConfig{
+		db: dbQueries,
+	}
+
 	const port = "8080"
 	const filepathRoot = "."
 	mux := http.NewServeMux()
@@ -14,8 +34,6 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
 	
-	var apiCfg apiConfig
-
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 
