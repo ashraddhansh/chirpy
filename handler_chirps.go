@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
+	"github.com/ashraddhansh/chirpy/internal/database"
 )
 
 func replaceProfaneWords(body string) string {
@@ -23,28 +26,33 @@ func replaceProfaneWords(body string) string {
     return strings.Join(words, " ")
 }
 
-func handlerValidateChirp (w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerChirps (w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body	string `json:"body"`
-	}
-	
-	type returnVals struct {
-		CleanedBody	string `json:"cleaned_body"`
+		UserID	uuid.UUID `json:"user_id"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		respondWithError(w, http.StatusBadRequest, "Couldn't decode parameters", err)
 		return
 	}
-	chirpLength := utf8.RuneCount([]byte(params.Body))
+	chirpLength := utf8.RuneCountInString(params.Body)
 	
 
 	if chirpLength > 140 {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
 		return
 	}
-	respondWithJSON(w, http.StatusOK, returnVals{CleanedBody: replaceProfaneWords(params.Body)})
+	chirp, err := cfg.db.CreateChirp(r.Context(),database.CreateChirpParams{
+		Body: replaceProfaneWords(params.Body),
+		UserID: params.UserID,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create chirp", err)
+		return
+	}
+	respondWithJSON(w, http.StatusCreated, databaseChirpToChirp(chirp))
 }

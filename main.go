@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync/atomic"
 
 	"github.com/ashraddhansh/chirpy/internal/database"
 	"github.com/joho/godotenv"
@@ -15,16 +16,21 @@ func main() {
 	godotenv.Load()
 
 	dbURL := os.Getenv("DB_URL")
-
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Print(err)
+	if dbURL == "" {
+		log.Fatal("DB_URL must be set")
 	}
 
-	dbQueries := database.New(db)
+	dbConn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Error opening database: %s", err)
+	}
+
+	dbQueries := database.New(dbConn)
 
 	apiCfg := &apiConfig{
+		fileServerHits: atomic.Int32{},
 		db: dbQueries,
+		platform: os.Getenv("PLATFORM"),
 	}
 
 	const port = "8080"
@@ -32,7 +38,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirps)
 	
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
