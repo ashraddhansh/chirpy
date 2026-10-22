@@ -17,19 +17,24 @@ func (cfg *apiConfig) handlerUsers (w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		respondWithError(w, http.StatusBadRequest, "Couldn't decode parameters", err)
+		return
+	}
+	if params.Email == "" || params.Password == "" {
+		respondWithError(w, http.StatusBadRequest, "empty email or password", err)
 		return
 	}
 
-	hashed_password, err := auth.HashPassword(params.Password)
+	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't hash the password", err)
+		return
 	}
 
 
 	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
 		Email: params.Email,
-		HashedPassword: hashed_password,
+		HashedPassword: hashedPassword,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create user", err)
