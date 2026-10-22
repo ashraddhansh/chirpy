@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
+	"github.com/ashraddhansh/chirpy/internal/auth"
 	"github.com/ashraddhansh/chirpy/internal/database"
 )
 
@@ -29,7 +29,6 @@ func replaceProfaneWords(body string) string {
 func (cfg *apiConfig) handlerChirps (w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body	string `json:"body"`
-		UserID	uuid.UUID `json:"user_id"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -39,6 +38,19 @@ func (cfg *apiConfig) handlerChirps (w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Couldn't decode parameters", err)
 		return
 	}
+	
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Missing or invalid authorization token", err)
+		return
+	}
+
+	id, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "User not authorized", err)
+		return
+	}
+
 	chirpLength := utf8.RuneCountInString(params.Body)
 	
 
@@ -48,7 +60,7 @@ func (cfg *apiConfig) handlerChirps (w http.ResponseWriter, r *http.Request) {
 	}
 	chirp, err := cfg.db.CreateChirp(r.Context(),database.CreateChirpParams{
 		Body: replaceProfaneWords(params.Body),
-		UserID: params.UserID,
+		UserID: id,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create chirp", err)

@@ -31,6 +31,7 @@ func main() {
 		fileServerHits: atomic.Int32{},
 		db: dbQueries,
 		platform: os.Getenv("PLATFORM"),
+		jwtSecret: os.Getenv("JWT_SECRET"),
 	}
 
 	const port = "8080"
