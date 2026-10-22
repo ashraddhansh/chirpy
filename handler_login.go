@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ashraddhansh/chirpy/internal/auth"
+	"github.com/ashraddhansh/chirpy/internal/database"
+	"github.com/google/uuid"
 )
 
 func (cfg *apiConfig) handlerLogin (w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Password	string `json:"password"`
 		Email	string `json:"email"`
-		ExpiresInSeconds	int `json:"expires_in_seconds"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
@@ -35,36 +35,37 @@ func (cfg *apiConfig) handlerLogin (w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !correct {
-		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
 		return
 	}
-	const defaultExpirationTime = 3600
 
-	if params.ExpiresInSeconds < 0 {
-    	respondWithError(w, http.StatusBadRequest, "Invalid expiration time", nil)
-    	return
-	}
-
-	if params.ExpiresInSeconds == 0 || params.ExpiresInSeconds > defaultExpirationTime {
-		params.ExpiresInSeconds = defaultExpirationTime
-
-	}
-
-	expiresIn := time.Duration(params.ExpiresInSeconds) * time.Second
-
-	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Hour)
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't create token", err)
 		return
 	}
 
+	refreshToken := auth.MakeRefreshToken()
+	refreshExpiresAt := time.Now().UTC().Add(60 * 24 * time.Hour)
+
+	dbRefreshToken, err := cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token: refreshToken,
+		UserID: user.ID,
+		ExpiresAt: refreshExpiresAt,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't store token", err)
+		return
+	}
+
 	type loginResponse struct {
-    ID        uuid.UUID `json:"id"`
-    CreatedAt time.Time `json:"created_at"`
-    UpdatedAt time.Time `json:"updated_at"`
-    Email     string    `json:"email"`
-    Token     string    `json:"token"`
+    ID             uuid.UUID `json:"id"`
+    CreatedAt      time.Time `json:"created_at"`
+    UpdatedAt      time.Time `json:"updated_at"`
+    Email          string    `json:"email"`
+    AccessToken    string    `json:"token"`
+    RefreshToken   string    `json:"refresh_token"`
 	}
 
 	respondWithJSON(w, http.StatusOK, loginResponse{
@@ -72,7 +73,8 @@ func (cfg *apiConfig) handlerLogin (w http.ResponseWriter, r *http.Request) {
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
-		Token: token,
+		AccessToken: accessToken,
+		RefreshToken: dbRefreshToken.Token,
 	})
 
 }
