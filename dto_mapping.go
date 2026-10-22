@@ -8,6 +8,7 @@ func databaseUserToUser(dbUser database.User) User {
         CreatedAt: dbUser.CreatedAt,
         UpdatedAt: dbUser.UpdatedAt,
         Email:     dbUser.Email,
+		IsChirpyRed: dbUser.IsChirpyRed,
     }
 }
 
