@@ -2,12 +2,20 @@ package main
 
 import (
 	"net/http"
+	"sort"
+
 	"github.com/google/uuid"
 )
 
 
 func (cfg *apiConfig) handlerGetChirps (w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("author_id")
+
+	sortMethod := r.URL.Query().Get("sort")
+	if sortMethod != "asc" && sortMethod != "desc" && sortMethod != "" {
+		respondWithError(w, http.StatusBadRequest, "Invalid sort query parameter", nil)
+		return
+	}
 
 	if id != "" {
 		authorID, err := uuid.Parse(id)
@@ -24,7 +32,14 @@ func (cfg *apiConfig) handlerGetChirps (w http.ResponseWriter, r *http.Request) 
 		for _, dbChirp := range dbChirpsUser {
 			chirps = append(chirps, databaseChirpToChirp(dbChirp))
 		}
+		if sortMethod == "desc" {
+			sort.Slice(chirps, func(i, j int) bool {
+				return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+			})
+			respondWithJSON(w, http.StatusOK, chirps)
+			return
 
+		}
 		respondWithJSON(w, http.StatusOK, chirps)
 		return
 	}
@@ -40,5 +55,10 @@ func (cfg *apiConfig) handlerGetChirps (w http.ResponseWriter, r *http.Request) 
 		chirps = append(chirps, databaseChirpToChirp(dbChirp))
 	}
 
+	if sortMethod == "desc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+	})
+}
 	respondWithJSON(w, http.StatusOK, chirps)
 }
